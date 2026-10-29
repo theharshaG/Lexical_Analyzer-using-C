@@ -4,8 +4,13 @@
 #include <ctype.h>
 #include "lexer.h"
 
-/* File pointer for reading input.c */
-static FILE *sourceFile;
+FILE *sourceFile;
+int lineNumber = 1;
+int expectHeader = 0;
+
+
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 
 /* Reserved keywords */
 static const char *res_keywords[] =
@@ -85,4 +90,150 @@ void initializeLexer(const char *filename)
         return;
     }
 }
+   
 
+void skipComment(char nextchar)
+{
+    int ch;
+    if(nextchar=='/')
+    {
+        while((ch=fgetc(sourceFile))!=EOF)
+        {
+            if(ch=='\n')
+            {
+                lineNumber++;
+                break;
+            }
+        }
+    }
+    else if(nextchar=='*')
+    {
+        int previous=0;
+        while((ch=fgetc(sourceFile))!=EOF)
+        {
+            if(ch=='\n')
+            {
+                lineNumber++;
+            }
+            if(previous=='*' && ch=='/')
+            {
+                break;
+            }
+            previous=ch;
+        }
+    }
+}
+
+int isDirective(const char *str)
+{
+    size_t i;
+
+    for (i = 0; i < ARRAY_SIZE(directives); i++)
+    {
+        if (strcmp(str, directives[i]) == 0)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+Token readDirective(char firstchar)
+{
+    Token token;
+    int ch;
+    size_t ind=0;
+    token.lineNumber=lineNumber;
+    token.lexeme[ind++]=(char)firstchar;
+
+    while((ch=fgetc(sourceFile))!=EOF)
+    {
+        if(isalpha((unsigned char)ch))
+        {
+            if(ind<MAX_TOKEN_SIZE-1)
+            {
+                token.lexeme[ind++]=(char)ch;
+            }
+        }
+        else
+        {
+            ungetc(ch,sourceFile);
+            break;
+        }
+    }
+    token.lexeme[ind]='\0';
+    
+    if(isDirective(token.lexeme))
+    {
+        token.type=PRE_PROCESSOR;
+        if(strcmp(token.lexeme,"#include")==0)
+        {
+            expectHeader=1;
+        }
+    }
+    else
+    {
+        token.type=UNKNOWN;
+    }
+    return token;
+}
+
+
+Token getNextToken(void)
+{
+    Token token;
+    int ch;
+
+    token.lexeme[0] = '\0';
+    token.type = EOF_TOKEN;
+    token.lineNumber = lineNumber;
+
+    if (sourceFile == NULL)
+    {
+        return token;
+    }
+
+    while ((ch = fgetc(sourceFile)) != EOF)
+    {
+        if (ch == ' ' || ch == '\t' || ch == '\r')
+        {
+            continue;
+        }
+
+        if (ch == '\n')
+        {
+            lineNumber++;
+            continue;
+        }
+
+        if (ch == '/')
+        {
+            int nextChar = fgetc(sourceFile);
+
+            if (nextChar == '/' || nextChar == '*')
+            {
+                skipComment(nextChar);
+                continue;
+            }
+
+            if (nextChar != EOF)
+            {
+                ungetc(nextChar, sourceFile);
+            }
+
+            token.lexeme[0] = '/';
+            token.lexeme[1] = '\0';
+            token.type = OPERATOR;
+            token.lineNumber = lineNumber;
+
+            return token;
+        }
+        if (ch == '#')
+        {
+            return readDirective(ch);
+        }
+    }
+}
+
+        
