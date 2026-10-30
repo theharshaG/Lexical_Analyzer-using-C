@@ -60,7 +60,7 @@ int isKeyword(const char *str)
 {
     int i;
 
-    for (i = 0; i < 19; i++)
+    for (i = 0; i < ARRAY_SIZE(res_keywords); i++)
     {
         if (strcmp(str, res_keywords[i]) == 0)
         {
@@ -68,7 +68,7 @@ int isKeyword(const char *str)
         }
     }
 
-    for (i = 0; i < 14; i++)
+    for (i = 0; i < ARRAY_SIZE(non_res_keywords); i++)
     {
         if (strcmp(str, non_res_keywords[i]) == 0)
         {
@@ -178,9 +178,133 @@ Token readDirective(char firstchar)
     }
     return token;
 }
+Token readHeader()
+{
+    Token token;
+    token.lineNumber=lineNumber;
+    size_t ind=0;
+    int ch;
+    token.lexeme[ind++]='<';
+    while((ch=fgetc(sourceFile))!=EOF)
+    {
+        if(ch=='>')
+        {
+            token.lexeme[ind++]='>';
+            break;
+        }
+        if(ind<MAX_TOKEN_SIZE-1)
+        {
+            token.lexeme[ind++]=(char)ch;
+        }
+    }
+    token.lexeme[ind]='\0';
+    token.type=HEADER;
+    expectHeader=0;
+    return token;
+}
 
+Token readIdentifier(char firstchar)
+{
+    Token token;
+    token.lineNumber=lineNumber;
+    size_t ind=0;
+    int ch;
+    token.lexeme[ind++]=firstchar;
+    while((ch=fgetc(sourceFile))!=EOF)
+    {
+        if(isalnum((unsigned char)ch) || ch=='_')
+        {
+            if(ind<MAX_TOKEN_SIZE-1)
+            {
+                token.lexeme[ind++]=(char)ch;
+            }
+        }
+        else
+        {
+            ungetc(ch,sourceFile);
+            break;
+        }
+    }
+    token.lexeme[ind]='\0';
+    if(isKeyword(token.lexeme))
+    {
+        token.type=RESERVED_KEYWORD;
+    }
+    else
+    {
+        token.type=IDENTIFIER;
+    }
+    return token;
+}
 
-Token getNextToken(void)
+Token readNumber(char firstchar)
+{
+    int ch;
+    size_t ind=0;
+    Token token;
+    token.lineNumber=lineNumber;
+    token.lexeme[ind++]=firstchar;
+
+    while((ch=fgetc(sourceFile))!=EOF)
+    {
+        if(isdigit((unsigned char)ch))
+        {
+            if(ind<MAX_TOKEN_SIZE-1)
+            {
+                token.lexeme[ind++]=(char)ch;
+            }
+        }
+        else if(ch=='.' && ind<MAX_TOKEN_SIZE-1)
+        {
+            token.lexeme[ind++]=(char)ch;
+        }
+        else
+        {
+            ungetc(ch,sourceFile);
+            break;
+        }
+    }
+    token.lexeme[ind]='\0';
+    token.type=NUMERIC_CONSTANT;
+    return token;
+}
+int CompoundOperator(const char str)
+{
+    size_t i;
+    for(int i=0;i<ARRAY_SIZE(compound_operators);i++)
+    {
+        if(strcmp(str,compound_operators[i])==0)
+        {
+            return 1;
+        }
+    }
+    return 0;
+}
+Token readOperator(char firstchar)
+{
+    Token token;
+    int ch;
+    token.lineNumber=lineNumber;
+    token.lexeme[0]=firstchar;
+    token.lexeme[1]='\0';
+    ch=fgetc(sourceFile);
+    if(ch!=EOF)
+    {
+        token.lexeme[1]=ch;
+        token.lexeme[2]='\0';
+        if(CompoundOperator(token.lexeme))
+        {
+            token.type=OPERATOR;
+            return token;
+        }
+        ungetc(ch,sourceFile);
+    }
+    token.lexeme[1]='\0';
+    token.type=OPERATOR;
+    return token;
+}
+
+Token getNextToken()
 {
     Token token;
     int ch;
@@ -233,7 +357,21 @@ Token getNextToken(void)
         {
             return readDirective(ch);
         }
+        if (ch == '<' && expectHeader)
+        {
+            return readHeader();
+        }
+        if (isalpha((unsigned char)ch) || ch == '_')
+        {
+            return readIdentifier((char)ch);
+        }
+        if (isdigit((unsigned char)ch))
+        {
+            return readNumber((char)ch);
+        }
+        if (strchr(operators, ch) != NULL)
+        {
+            return  readOperator((char)ch);  
+        }
     }
 }
-
-        
