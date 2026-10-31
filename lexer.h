@@ -1,4 +1,3 @@
-
 #ifndef LEXER_H
 #define LEXER_H
 
@@ -29,6 +28,6 @@ typedef struct
 
 void initializeLexer(const char *filename);
 Token getNextToken(void);
-int isKeyword(const char *str);
+TokenType getKeywordType(const char *str);
 
 #endif

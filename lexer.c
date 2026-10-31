@@ -46,25 +46,25 @@ static const char *compound_operators[] =
 static const char operators[] =
 {
     '/', '*', '-', '+', '%', '=', '<', '>',
-    '&', '!', '^', '|', '~', ','
+    '&', '!', '^', '|', '~', ',','\0'
 };
 
 /* Symbols */
 static const char symbol[] =
 {
-    '(', ')', '{', '}', '[', ']', ':'
+    '(', ')', '{', '}', '[', ']', ':', ';','\0'
 };
 
 /* Check whether a string is a keyword */
-int isKeyword(const char *str)
+TokenType getKeywordType(const char *str)
 {
-    int i;
+    size_t i;
 
     for (i = 0; i < ARRAY_SIZE(res_keywords); i++)
     {
         if (strcmp(str, res_keywords[i]) == 0)
         {
-            return 1;
+            return RESERVED_KEYWORD;
         }
     }
 
@@ -72,16 +72,19 @@ int isKeyword(const char *str)
     {
         if (strcmp(str, non_res_keywords[i]) == 0)
         {
-            return 1;
+            return NON_RESERVED_KEYWORD;
         }
     }
 
-    return 0;
+    return IDENTIFIER;
 }
 
 /* Open the input file */
 void initializeLexer(const char *filename)
 {
+    lineNumber = 1;
+    expectHeader = 0;
+
     sourceFile = fopen(filename, "r");
 
     if (sourceFile == NULL)
@@ -90,8 +93,6 @@ void initializeLexer(const char *filename)
         return;
     }
 }
-   
-
 void skipComment(char nextchar)
 {
     int ch;
@@ -226,14 +227,7 @@ Token readIdentifier(char firstchar)
         }
     }
     token.lexeme[ind]='\0';
-    if(isKeyword(token.lexeme))
-    {
-        token.type=RESERVED_KEYWORD;
-    }
-    else
-    {
-        token.type=IDENTIFIER;
-    }
+    token.type = getKeywordType(token.lexeme);
     return token;
 }
 
@@ -268,18 +262,19 @@ Token readNumber(char firstchar)
     token.type=NUMERIC_CONSTANT;
     return token;
 }
-int CompoundOperator(const char str)
+int isCompoundOperator(const char *str)
 {
     size_t i;
-    for(int i=0;i<ARRAY_SIZE(compound_operators);i++)
+    for (i = 0; i < ARRAY_SIZE(compound_operators); i++)
     {
-        if(strcmp(str,compound_operators[i])==0)
+        if (strcmp(str, compound_operators[i]) == 0)
         {
             return 1;
         }
     }
     return 0;
 }
+
 Token readOperator(char firstchar)
 {
     Token token;
@@ -292,7 +287,7 @@ Token readOperator(char firstchar)
     {
         token.lexeme[1]=ch;
         token.lexeme[2]='\0';
-        if(CompoundOperator(token.lexeme))
+        if (isCompoundOperator(token.lexeme))
         {
             token.type=OPERATOR;
             return token;
@@ -304,17 +299,45 @@ Token readOperator(char firstchar)
     return token;
 }
 
-Token getNextToken()
+Token readSymbol(char ch)
+{
+    Token token;
+
+    token.lineNumber = lineNumber;
+
+    token.lexeme[0] = ch;
+    token.lexeme[1] = '\0';
+
+    if (ch == '(' || ch == '{' || ch == '[')
+    {
+        token.type = OPEN_BRACE;
+    }
+    else if (ch == ')' || ch == '}' || ch == ']')
+    {
+        token.type = CLOSE_BRACE;
+    }
+    else if (ch == ';')
+    {
+        token.type = TERMINATING_OPERATOR;
+    }
+    else
+    {
+        token.type = UNKNOWN;
+    }
+
+    return token;
+}
+
+Token getNextToken(void)
 {
     Token token;
     int ch;
 
-    token.lexeme[0] = '\0';
-    token.type = EOF_TOKEN;
-    token.lineNumber = lineNumber;
-
     if (sourceFile == NULL)
     {
+        token.lexeme[0] = '\0';
+        token.type = EOF_TOKEN;
+        token.lineNumber = lineNumber;
         return token;
     }
 
@@ -337,7 +360,7 @@ Token getNextToken()
 
             if (nextChar == '/' || nextChar == '*')
             {
-                skipComment(nextChar);
+                skipComment((char)nextChar);
                 continue;
             }
 
@@ -346,32 +369,50 @@ Token getNextToken()
                 ungetc(nextChar, sourceFile);
             }
 
-            token.lexeme[0] = '/';
-            token.lexeme[1] = '\0';
-            token.type = OPERATOR;
-            token.lineNumber = lineNumber;
-
-            return token;
+            return readOperator('/');
         }
+
         if (ch == '#')
         {
-            return readDirective(ch);
+            return readDirective((char)ch);
         }
+
         if (ch == '<' && expectHeader)
         {
             return readHeader();
         }
+
         if (isalpha((unsigned char)ch) || ch == '_')
         {
             return readIdentifier((char)ch);
         }
+
         if (isdigit((unsigned char)ch))
         {
             return readNumber((char)ch);
         }
+
         if (strchr(operators, ch) != NULL)
         {
-            return  readOperator((char)ch);  
+            return readOperator((char)ch);
         }
+
+        if (strchr(symbol, ch) != NULL)
+        {
+            return readSymbol((char)ch);
+        }
+
+        token.lexeme[0] = (char)ch;
+        token.lexeme[1] = '\0';
+        token.type = UNKNOWN;
+        token.lineNumber = lineNumber;
+
+        return token;
     }
+
+    token.lexeme[0] = '\0';
+    token.type = EOF_TOKEN;
+    token.lineNumber = lineNumber;
+
+    return token;
 }
