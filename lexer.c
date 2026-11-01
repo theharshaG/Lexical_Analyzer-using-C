@@ -328,6 +328,111 @@ Token readSymbol(char ch)
     return token;
 }
 
+Token readString()
+{
+    Token token;
+    int ch;
+    int previous = 0;
+    size_t ind = 0;
+
+    token.lineNumber = lineNumber;
+
+    token.lexeme[ind++] = '"';
+
+    while ((ch = fgetc(sourceFile)) != EOF)
+    {
+        if (ch == '\n')
+        {
+            lineNumber++;
+        }
+
+        if (ind < MAX_TOKEN_SIZE - 2)
+        {
+            token.lexeme[ind++] = (char)ch;
+        }
+
+        if (ch == '"' && previous != '\\')
+        {
+            break;
+        }
+
+        if (ch == '\\' && previous != '\\')
+            previous = '\\';
+        else
+            previous = 0;
+    }
+
+    token.lexeme[ind] = '\0';
+
+    if (ch == '"')
+        token.type = STRING_LITERAL;
+    else
+        token.type = UNKNOWN;
+
+    return token;
+}
+
+Token readCharacter()
+{
+    Token token;
+    int ch;
+    int count = 0;
+    size_t ind = 0;
+
+    token.lineNumber = lineNumber;
+    token.lexeme[ind++] = '\'';
+
+    ch = fgetc(sourceFile);
+
+    if (ch == EOF || ch == '\n')
+    {
+        token.type = UNKNOWN;
+        token.lexeme[ind] = '\0';
+        return token;
+    }
+
+    if (ind < MAX_TOKEN_SIZE - 2)
+        token.lexeme[ind++] = (char)ch;
+
+    count++;
+
+    if (ch == '\\')
+    {
+        ch = fgetc(sourceFile);
+
+        if (ch == EOF || ch == '\n')
+        {
+            token.type = UNKNOWN;
+            token.lexeme[ind] = '\0';
+            return token;
+        }
+
+        if (ind < MAX_TOKEN_SIZE - 2)
+            token.lexeme[ind++] = (char)ch;
+    }
+
+    ch = fgetc(sourceFile);
+
+    if (ch == '\'')
+    {
+        token.lexeme[ind++] = '\'';
+        token.type = CHARACTER_CONSTANT;
+    }
+    else
+    {
+        token.type = UNKNOWN;
+
+        while (ch != EOF && ch != '\'' && ch != '\n')
+            ch = fgetc(sourceFile);
+
+        if (ch == '\'')
+            token.lexeme[ind++] = '\'';
+    }
+
+    token.lexeme[ind] = '\0';
+
+    return token;
+}
 Token getNextToken(void)
 {
     Token token;
@@ -382,6 +487,15 @@ Token getNextToken(void)
             return readHeader();
         }
 
+        if (ch == '"')
+        {
+            return readString();
+        }
+        if (ch == '\'')
+        {
+            return readCharacter();
+        }
+
         if (isalpha((unsigned char)ch) || ch == '_')
         {
             return readIdentifier((char)ch);
@@ -415,4 +529,12 @@ Token getNextToken(void)
     token.lineNumber = lineNumber;
 
     return token;
+}
+void closeLexer()
+{
+    if (sourceFile != NULL)
+    {
+        fclose(sourceFile);
+        sourceFile = NULL;
+    }
 }

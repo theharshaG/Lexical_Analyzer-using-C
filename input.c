@@ -1,5 +1,7 @@
-#include <stdio.h>
 int main()
 {
-    return 0; // c programming structure  
+    int a = 10
+    a = 20
+    printf("%d", a)
+    return 0;
 }

@@ -15,6 +15,8 @@ typedef enum
     TERMINATING_OPERATOR,
     NUMERIC_CONSTANT,
     IDENTIFIER,
+    STRING_LITERAL,
+    CHARACTER_CONSTANT,
     UNKNOWN,
     EOF_TOKEN
 } TokenType;
@@ -27,7 +29,9 @@ typedef struct
 } Token;
 
 void initializeLexer(const char *filename);
-Token getNextToken(void);
+Token getNextToken();
 TokenType getKeywordType(const char *str);
+
+void closeLexer();
 
 #endif

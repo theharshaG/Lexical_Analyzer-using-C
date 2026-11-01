@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "lexer.h"
+#include "syntax.h"
 
 // Convert token type values into names 
 static const char *getTokenTypeName(TokenType type)
@@ -39,6 +40,12 @@ static const char *getTokenTypeName(TokenType type)
         case UNKNOWN:
             return "UNKNOWN";
 
+        case STRING_LITERAL:
+            return "STRING LITERAL";
+
+        case CHARACTER_CONSTANT:
+            return "CHARACTER CONSTANT";
+
         case EOF_TOKEN:
             return "EOF";
 
@@ -51,7 +58,28 @@ int main()
 {
     Token token;
 
+    printf("\n----- SYNTAX ANALYSIS -----\n");
+
+    
+    //header checking
     initializeLexer("input.c");
+    storeTokens();
+    checkRequiredHeaders();
+    closeLexer();
+
+
+    // Delimiters checking
+    initializeLexer("input.c");
+    checkDelimiters();
+    closeLexer();
+
+    //check semicolon (;)
+    initializeLexer("input.c");
+    checkSemicolon();
+    closeLexer();
+
+    initializeLexer("input.c");
+
 
     printf("---------------------------------------------\n");
     printf("%-10s %-15s : %s\n",
@@ -67,13 +95,12 @@ int main()
             break;
         }
 
-        printf("%-10d %-15s : %s\n",
-               token.lineNumber,
-               token.lexeme,
-               getTokenTypeName(token.type));
+        printf("%-10d %-15s : %s\n",token.lineNumber,token.lexeme,getTokenTypeName(token.type));
     }
 
     printf("---------------------------------------------\n");
+    closeLexer();
+
 
     return 0;
 }
