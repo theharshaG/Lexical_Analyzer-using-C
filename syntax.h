@@ -1,16 +1,34 @@
+
 #ifndef SYNTAX_H
 #define SYNTAX_H
 
 #include "lexer.h"
-void checkDelimiters();
+
+//Store lexer tokens 
+void storeTokens(void);
+
+//Header checking 
+int isValidHeader(const char *header);
+void checkHeaders(void);
 int isHeaderPresent(const char *header);
-void checkRequiredHeaders();
+void checkRequiredHeaders(void);
+
+// Delimiter checking 
+void checkDelimiters(void);
+
+//Data type checking 
 int isDataType(const char *word);
-void checkSemicolon();
-void storeTokens();
+
+//Function checking 
 int isFunctionCall(int index);
 int isFunctionDefinition(int index);
 int findClosingParen(int index);
+
+// Operator checking 
 int isAssignment(int index);
+int isIncrementDecrement(int index);
+
+// Semicolon checking 
+void checkSemicolon(void);
 
 #endif

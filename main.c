@@ -57,29 +57,17 @@ static const char *getTokenTypeName(TokenType type)
 int main()
 {
     Token token;
-
-    printf("\n----- SYNTAX ANALYSIS -----\n");
-
     
-    //header checking
     initializeLexer("input.c");
+
     storeTokens();
-    checkRequiredHeaders();
-    closeLexer();
-
-
-    // Delimiters checking
-    initializeLexer("input.c");
+    checkHeaders();
     checkDelimiters();
-    closeLexer();
-
-    //check semicolon (;)
-    initializeLexer("input.c");
+    checkRequiredHeaders();
     checkSemicolon();
     closeLexer();
 
     initializeLexer("input.c");
-
 
     printf("---------------------------------------------\n");
     printf("%-10s %-15s : %s\n",
