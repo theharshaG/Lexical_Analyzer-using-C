@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -8,9 +7,7 @@ FILE *sourceFile;
 int lineNumber = 1;
 int expectHeader = 0;
 
-
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
 
 /* Reserved keywords */
 static const char *res_keywords[] =
@@ -39,23 +36,23 @@ static const char *compound_operators[] =
 {
     "==", "!=", "|=", "&=", "^=", "<=", ">=",
     "+=", "-=", "*=", "/=", "%=", "<<", ">>",
-    "++", "--", "->"
+    "++", "--", "->", "&&", "||"
 };
 
 /* Single-character operators */
 static const char operators[] =
 {
     '/', '*', '-', '+', '%', '=', '<', '>',
-    '&', '!', '^', '|', '~', ',','\0'
+    '&', '!', '^', '|', '~', ',', '\0'
 };
 
 /* Symbols */
 static const char symbol[] =
 {
-    '(', ')', '{', '}', '[', ']', ':', ';','\0'
+    '(', ')', '{', '}', '[', ']', ':', ';', '\0'
 };
 
-/* Check whether a string is a keyword */
+// Check whether a string is a keyword
 TokenType getKeywordType(const char *str)
 {
     size_t i;
@@ -79,48 +76,57 @@ TokenType getKeywordType(const char *str)
     return IDENTIFIER;
 }
 
-/* Open the input file */
-void initializeLexer(const char *filename)
+// Open the input file
+int initializeLexer(const char *filename)
 {
     lineNumber = 1;
     expectHeader = 0;
+
+    if (sourceFile != NULL)
+    {
+        fclose(sourceFile);
+        sourceFile = NULL;
+    }
 
     sourceFile = fopen(filename, "r");
 
     if (sourceFile == NULL)
     {
-        printf("Error: Cannot open file %s\n", filename);
-        return;
+        printf("Error: Cannot open file '%s'\n", filename);
+        return 0;
     }
+
+    return 1;
 }
+
 void skipComment(char nextchar)
 {
     int ch;
-    if(nextchar=='/')
+    if (nextchar == '/')
     {
-        while((ch=fgetc(sourceFile))!=EOF)
+        while ((ch = fgetc(sourceFile)) != EOF)
         {
-            if(ch=='\n')
+            if (ch == '\n')
             {
                 lineNumber++;
                 break;
             }
         }
     }
-    else if(nextchar=='*')
+    else if (nextchar == '*')
     {
-        int previous=0;
-        while((ch=fgetc(sourceFile))!=EOF)
+        int previous = 0;
+        while ((ch = fgetc(sourceFile)) != EOF)
         {
-            if(ch=='\n')
+            if (ch == '\n')
             {
                 lineNumber++;
             }
-            if(previous=='*' && ch=='/')
+            if (previous == '*' && ch == '/')
             {
                 break;
             }
-            previous=ch;
+            previous = ch;
         }
     }
 }
@@ -144,89 +150,102 @@ Token readDirective(char firstchar)
 {
     Token token;
     int ch;
-    size_t ind=0;
-    token.lineNumber=lineNumber;
-    token.lexeme[ind++]=(char)firstchar;
+    size_t ind = 0;
+    token.lineNumber = lineNumber;
+    token.lexeme[ind++] = (char)firstchar;
 
-    while((ch=fgetc(sourceFile))!=EOF)
+    while ((ch = fgetc(sourceFile)) != EOF)
     {
-        if(isalpha((unsigned char)ch))
+        if (isalpha((unsigned char)ch))
         {
-            if(ind<MAX_TOKEN_SIZE-1)
+            if (ind < MAX_TOKEN_SIZE - 1)
             {
-                token.lexeme[ind++]=(char)ch;
+                token.lexeme[ind++] = (char)ch;
             }
         }
         else
         {
-            ungetc(ch,sourceFile);
+            ungetc(ch, sourceFile);
             break;
         }
     }
-    token.lexeme[ind]='\0';
-    
-    if(isDirective(token.lexeme))
+    token.lexeme[ind] = '\0';
+
+    if (isDirective(token.lexeme))
     {
-        token.type=PRE_PROCESSOR;
-        if(strcmp(token.lexeme,"#include")==0)
+        token.type = PRE_PROCESSOR;
+        if (strcmp(token.lexeme, "#include") == 0)
         {
-            expectHeader=1;
+            expectHeader = 1;
         }
     }
     else
     {
-        token.type=UNKNOWN;
+        token.type = UNKNOWN;
     }
     return token;
 }
+
 Token readHeader()
 {
     Token token;
-    token.lineNumber=lineNumber;
-    size_t ind=0;
+    token.lineNumber = lineNumber;
+    size_t ind = 0;
     int ch;
-    token.lexeme[ind++]='<';
-    while((ch=fgetc(sourceFile))!=EOF)
+    int closed = 0;
+
+    token.lexeme[ind++] = '<';
+    while ((ch = fgetc(sourceFile)) != EOF)
     {
-        if(ch=='>')
+        if (ch == '\n')
         {
-            token.lexeme[ind++]='>';
+            lineNumber++;
             break;
         }
-        if(ind<MAX_TOKEN_SIZE-1)
+        if (ch == '>')
         {
-            token.lexeme[ind++]=(char)ch;
+            if (ind < MAX_TOKEN_SIZE - 1)
+            {
+                token.lexeme[ind++] = '>';
+            }
+            closed = 1;
+            break;
+        }
+        if (ind < MAX_TOKEN_SIZE - 1)
+        {
+            token.lexeme[ind++] = (char)ch;
         }
     }
-    token.lexeme[ind]='\0';
-    token.type=HEADER;
-    expectHeader=0;
+    token.lexeme[ind] = '\0';
+    token.type = closed ? HEADER : LEXICAL_ERROR;
+    expectHeader = 0;
     return token;
 }
 
 Token readIdentifier(char firstchar)
 {
     Token token;
-    token.lineNumber=lineNumber;
-    size_t ind=0;
+    token.lineNumber = lineNumber;
+    size_t ind = 0;
     int ch;
-    token.lexeme[ind++]=firstchar;
-    while((ch=fgetc(sourceFile))!=EOF)
+    token.lexeme[ind++] = firstchar;
+
+    while ((ch = fgetc(sourceFile)) != EOF)
     {
-        if(isalnum((unsigned char)ch) || ch=='_')
+        if (isalnum((unsigned char)ch) || ch == '_')
         {
-            if(ind<MAX_TOKEN_SIZE-1)
+            if (ind < MAX_TOKEN_SIZE - 1)
             {
-                token.lexeme[ind++]=(char)ch;
+                token.lexeme[ind++] = (char)ch;
             }
         }
         else
         {
-            ungetc(ch,sourceFile);
+            ungetc(ch, sourceFile);
             break;
         }
     }
-    token.lexeme[ind]='\0';
+    token.lexeme[ind] = '\0';
     token.type = getKeywordType(token.lexeme);
     return token;
 }
@@ -234,34 +253,59 @@ Token readIdentifier(char firstchar)
 Token readNumber(char firstchar)
 {
     int ch;
-    size_t ind=0;
-    Token token;
-    token.lineNumber=lineNumber;
-    token.lexeme[ind++]=firstchar;
+    int invalidIdentifier = 0;
+    int dotCount = 0;
+    int invalidNumber = 0;
 
-    while((ch=fgetc(sourceFile))!=EOF)
+    size_t ind = 0;
+    Token token;
+
+    token.lineNumber = lineNumber;
+    token.lexeme[ind++] = firstchar;
+
+    while ((ch = fgetc(sourceFile)) != EOF)
     {
-        if(isdigit((unsigned char)ch))
+        if (isalnum((unsigned char)ch) || ch == '_')
         {
-            if(ind<MAX_TOKEN_SIZE-1)
+            if (isalpha((unsigned char)ch) || ch == '_')
             {
-                token.lexeme[ind++]=(char)ch;
+                invalidIdentifier = 1;
+            }
+
+            if (ind < MAX_TOKEN_SIZE - 1)
+            {
+                token.lexeme[ind++] = (char)ch;
             }
         }
-        else if(ch=='.' && ind<MAX_TOKEN_SIZE-1)
+        else if (ch == '.')
         {
-            token.lexeme[ind++]=(char)ch;
+            dotCount++;
+            if (dotCount > 1)
+            {
+                invalidNumber = 1;
+            }
+            if (ind < MAX_TOKEN_SIZE - 1)
+            {
+                token.lexeme[ind++] = (char)ch;
+            }
         }
         else
         {
-            ungetc(ch,sourceFile);
+            ungetc(ch, sourceFile);
             break;
         }
     }
-    token.lexeme[ind]='\0';
-    token.type=NUMERIC_CONSTANT;
+
+    token.lexeme[ind] = '\0';
+
+    if (invalidIdentifier || invalidNumber)
+        token.type = LEXICAL_ERROR;
+    else
+        token.type = NUMERIC_CONSTANT;
+
     return token;
 }
+
 int isCompoundOperator(const char *str)
 {
     size_t i;
@@ -279,23 +323,23 @@ Token readOperator(char firstchar)
 {
     Token token;
     int ch;
-    token.lineNumber=lineNumber;
-    token.lexeme[0]=firstchar;
-    token.lexeme[1]='\0';
-    ch=fgetc(sourceFile);
-    if(ch!=EOF)
+    token.lineNumber = lineNumber;
+    token.lexeme[0] = firstchar;
+    token.lexeme[1] = '\0';
+    ch = fgetc(sourceFile);
+    if (ch != EOF)
     {
-        token.lexeme[1]=ch;
-        token.lexeme[2]='\0';
+        token.lexeme[1] = (char)ch;
+        token.lexeme[2] = '\0';
         if (isCompoundOperator(token.lexeme))
         {
-            token.type=OPERATOR;
+            token.type = OPERATOR;
             return token;
         }
-        ungetc(ch,sourceFile);
+        ungetc(ch, sourceFile);
     }
-    token.lexeme[1]='\0';
-    token.type=OPERATOR;
+    token.lexeme[1] = '\0';
+    token.type = OPERATOR;
     return token;
 }
 
@@ -336,7 +380,6 @@ Token readString()
     size_t ind = 0;
 
     token.lineNumber = lineNumber;
-
     token.lexeme[ind++] = '"';
 
     while ((ch = fgetc(sourceFile)) != EOF)
@@ -415,7 +458,8 @@ Token readCharacter()
 
     if (ch == '\'')
     {
-        token.lexeme[ind++] = '\'';
+        if (ind < MAX_TOKEN_SIZE - 1)
+            token.lexeme[ind++] = '\'';
         token.type = CHARACTER_CONSTANT;
     }
     else
@@ -426,13 +470,17 @@ Token readCharacter()
             ch = fgetc(sourceFile);
 
         if (ch == '\'')
-            token.lexeme[ind++] = '\'';
+        {
+            if (ind < MAX_TOKEN_SIZE - 1)
+                token.lexeme[ind++] = '\'';
+        }
     }
 
     token.lexeme[ind] = '\0';
 
     return token;
 }
+
 Token getNextToken(void)
 {
     Token token;
@@ -530,7 +578,8 @@ Token getNextToken(void)
 
     return token;
 }
-void closeLexer()
+
+void closeLexer(void)
 {
     if (sourceFile != NULL)
     {

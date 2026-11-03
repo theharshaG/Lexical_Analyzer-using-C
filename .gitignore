@@ -1,0 +1,21 @@
+# Compiled executables
+lexer
+lexer.exe
+a.out
+a.exe
+
+# Object files
+*.o
+
+# Debug and crash dumps
+*.dSYM/
+core
+*.gdb
+
+# Editor and OS temporary files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db

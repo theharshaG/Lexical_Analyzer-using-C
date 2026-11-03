@@ -46,6 +46,9 @@ static const char *getTokenTypeName(TokenType type)
         case CHARACTER_CONSTANT:
             return "CHARACTER CONSTANT";
 
+        case LEXICAL_ERROR:
+            return "LEXICAL_ERROR";
+
         case EOF_TOKEN:
             return "EOF";
 
@@ -54,11 +57,19 @@ static const char *getTokenTypeName(TokenType type)
     }
 }
 
-int main()
+// Process a single file: perform syntax analysis and print tokens
+static void processFile(const char *filename)
 {
     Token token;
-    
-    initializeLexer("input.c");
+
+    if (!initializeLexer(filename))
+    {
+        return;
+    }
+
+    printf("\n======================================================\n");
+    printf(" FILE: %s\n", filename);
+    printf("======================================================\n");
 
     storeTokens();
     checkHeaders();
@@ -67,12 +78,11 @@ int main()
     checkSemicolon();
     closeLexer();
 
-    initializeLexer("input.c");
+    initializeLexer(filename);
 
-    printf("---------------------------------------------\n");
-    printf("%-10s %-15s : %s\n",
-           "Line No", "Token", "Token Type");
-    printf("---------------------------------------------\n");
+    printf("------------------------------------------------------\n");
+    printf("%-10s %-20s : %s\n", "Line No", "Token", "Token Type");
+    printf("------------------------------------------------------\n");
 
     while (1)
     {
@@ -83,12 +93,26 @@ int main()
             break;
         }
 
-        printf("%-10d %-15s : %s\n",token.lineNumber,token.lexeme,getTokenTypeName(token.type));
+        printf("%-10d %-20s : %s\n", token.lineNumber, token.lexeme, getTokenTypeName(token.type));
     }
 
-    printf("---------------------------------------------\n");
+    printf("------------------------------------------------------\n");
     closeLexer();
+}
 
+int main(int argc, char *argv[])
+{
+    if (argc > 1)
+    {
+        for (int i = 1; i < argc; i++)
+        {
+            processFile(argv[i]);
+        }
+    }
+    else
+    {
+        processFile("input.c");
+    }
 
     return 0;
 }

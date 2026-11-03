@@ -17,6 +17,7 @@ typedef enum
     IDENTIFIER,
     STRING_LITERAL,
     CHARACTER_CONSTANT,
+    LEXICAL_ERROR,
     UNKNOWN,
     EOF_TOKEN
 } TokenType;
@@ -28,10 +29,10 @@ typedef struct
     int lineNumber;
 } Token;
 
-void initializeLexer(const char *filename);
-Token getNextToken();
+int initializeLexer(const char *filename);
+Token getNextToken(void);
 TokenType getKeywordType(const char *str);
 
-void closeLexer();
+void closeLexer(void);
 
 #endif

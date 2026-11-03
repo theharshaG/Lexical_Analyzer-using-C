@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include "syntax.h"
@@ -270,8 +269,13 @@ int isFunctionCall(int index)
     if (strcmp(tokens[index + 1].lexeme, "(") != 0)
         return 0;
 
-    //Ignore function definitions
-    if (index > 0 && isDataType(tokens[index - 1].lexeme))
+    //Ignore function definitions (including pointer return types like char *foo())
+    int prev = index - 1;
+    while (prev >= 0 && strcmp(tokens[prev].lexeme, "*") == 0)
+    {
+        prev--;
+    }
+    if (prev >= 0 && isDataType(tokens[prev].lexeme))
         return 0;
 
     return 1;
@@ -302,10 +306,18 @@ int findClosingParen(int index)
 //Check whether the current token starts a function definition
 int isFunctionDefinition(int index)
 {
-    if (index + 2 < tokenCount &&
-        isDataType(tokens[index].lexeme) &&
-        tokens[index + 1].type == IDENTIFIER &&
-        strcmp(tokens[index + 2].lexeme, "(") == 0)
+    if (!isDataType(tokens[index].lexeme))
+        return 0;
+
+    int idx = index + 1;
+    while (idx < tokenCount && strcmp(tokens[idx].lexeme, "*") == 0)
+    {
+        idx++;
+    }
+
+    if (idx + 1 < tokenCount &&
+        tokens[idx].type == IDENTIFIER &&
+        strcmp(tokens[idx + 1].lexeme, "(") == 0)
     {
         return 1;
     }
@@ -401,7 +413,12 @@ void checkSemicolon(void)
             /* Skip function parameters */
             if (isFunctionDefinition(i))
             {
-                int closingIndex = findClosingParen(i + 2);
+                int parenIdx = i + 1;
+                while (parenIdx < tokenCount && strcmp(tokens[parenIdx].lexeme, "(") != 0)
+                {
+                    parenIdx++;
+                }
+                int closingIndex = findClosingParen(parenIdx);
 
                 if (closingIndex != -1)
                 {
@@ -418,7 +435,14 @@ void checkSemicolon(void)
 
             statementType = 1;
             statementLine = tokens[i].lineNumber;
-            declarationNameIndex = i + 1;
+
+            /* Skip pointer asterisks to find the variable name */
+            int nextIdx = i + 1;
+            while (nextIdx < tokenCount && strcmp(tokens[nextIdx].lexeme, "*") == 0)
+            {
+                nextIdx++;
+            }
+            declarationNameIndex = nextIdx;
         }
 
         /* Assignment statement */
