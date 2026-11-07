@@ -1,3 +1,9 @@
+//NAME : HARSHA G
+/*description : Developed a Lexical Analyzer using C to identify tokens such as keywords, identifiers, operators, constants, and special symbols.
+Implemented token classification and lexical error detection.
+Used file handling and modular programming to organize the lexer functionality.*/
+
+
 #include <stdio.h>
 #include "lexer.h"
 #include "syntax.h"
